@@ -1,10 +1,25 @@
 // server.js
+const express = require("express");
 const WebSocket = require("ws");
-const server = new WebSocket.Server({ port: 8080 });
+const path = require("path");
+
+const app = express();
+const PORT = process.env.PORT || 8080;
+
+// Serve static files from the "public" directory (where index.html is located)
+app.use(express.static(path.join(__dirname, "public")));
+
+// Create an HTTP server and attach the WebSocket server to it
+const server = app.listen(PORT, () => {
+  console.log(`Server is running on http://localhost:${PORT}`);
+});
+
+// Set up the WebSocket server to work alongside the HTTP server
+const wss = new WebSocket.Server({ server });
 
 let clients = {}; // Stores clients by ID with username and socket info
 
-server.on("connection", (socket) => {
+wss.on("connection", (socket) => {
   let clientId;
   let username;
 
@@ -60,4 +75,9 @@ function broadcastClientList() {
   });
 }
 
-console.log("WebSocket server is running on ws://localhost:8080");
+// Serve the index.html file for any unmatched route
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+console.log(`WebSocket server is running on ws://localhost:${PORT}`);
