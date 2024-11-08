@@ -19,6 +19,9 @@ const wss = new WebSocket.Server({ server });
 
 let clients = {}; // Stores clients by ID with username and socket info
 
+// Identifier for the group chat
+const GROUP_CHAT_ID = "group-chat";
+
 wss.on("connection", (socket) => {
   let clientId;
   let username;
@@ -39,18 +42,23 @@ wss.on("connection", (socket) => {
       // Broadcast updated client list to all clients
       broadcastClientList();
     } else if (data.type === "message") {
-      // Find the recipient client by username
-      const recipient = Object.values(clients).find(
-        (client) => client.username === data.to
-      );
-      if (recipient && recipient.socket.readyState === WebSocket.OPEN) {
-        recipient.socket.send(
-          JSON.stringify({
-            type: "message",
-            from: username,
-            message: data.message,
-          })
+      // Check if the message is intended for the group chat
+      if (data.to === GROUP_CHAT_ID) {
+        broadcastGroupMessage(username, data.message);
+      } else {
+        // Handle direct messages to specific clients
+        const recipient = Object.values(clients).find(
+          (client) => client.username === data.to
         );
+        if (recipient && recipient.socket.readyState === WebSocket.OPEN) {
+          recipient.socket.send(
+            JSON.stringify({
+              type: "message",
+              from: username,
+              message: data.message,
+            })
+          );
+        }
       }
     }
   });
@@ -72,6 +80,26 @@ function broadcastClientList() {
     client.socket.send(
       JSON.stringify({ type: "clientList", clients: clientList })
     );
+  });
+}
+
+// Broadcasts a message to all clients in the group chat, excluding the sender
+function broadcastGroupMessage(from, message) {
+  Object.values(clients).forEach((client) => {
+    // Skip the sender
+    if (
+      client.username !== from &&
+      client.socket.readyState === WebSocket.OPEN
+    ) {
+      client.socket.send(
+        JSON.stringify({
+          type: "message",
+          from,
+          message,
+          to: GROUP_CHAT_ID,
+        })
+      );
+    }
   });
 }
 
