@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Persistent Peer-to-Peer Chat</title>
+  <title>Cheet Chat</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -150,7 +150,7 @@
 
 <body>
   <div class="chat-container">
-    <h2>Persistent Peer-to-Peer Chat</h2>
+    <h2>Cheet Chat</h2>
     <div class="username-display" id="usernameDisplay"></div> <!-- Username display in the top-right -->
     <div id="clients"><strong>Available clients:</strong></div>
     <div id="chat"></div>
@@ -265,6 +265,17 @@
         sendMessage();
       }
     }
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") {
+        const username = localStorage.getItem("username");
+        localStorage.clear();
+        chatBox.innerHTML = ""
+        if (username) {
+          localStorage.setItem("username", username);
+        }
+      }
+    });
   </script>
 </body>
 
