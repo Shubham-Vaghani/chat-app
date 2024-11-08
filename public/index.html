@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Cheet Chat</title>
   <style>
+    /* Existing CSS code remains the same */
     body {
       font-family: Arial, sans-serif;
       display: flex;
@@ -26,7 +27,6 @@
       position: relative;
     }
 
-    /* Username Display */
     .username-display {
       position: absolute;
       top: 10px;
@@ -50,11 +50,8 @@
       padding: 10px;
       overflow-y: auto;
       margin-bottom: 10px;
-      scrollbar-width: thin;
-      /* Firefox */
     }
 
-    /* Custom Scrollbar */
     #chat::-webkit-scrollbar {
       width: 6px;
     }
@@ -112,7 +109,6 @@
       border-color: #0277bd;
     }
 
-    /* Button and Highlighted Client Button */
     button {
       padding: 10px 15px;
       font-size: 16px;
@@ -151,8 +147,9 @@
 <body>
   <div class="chat-container">
     <h2>Cheet Chat</h2>
-    <div class="username-display" id="usernameDisplay"></div> <!-- Username display in the top-right -->
+    <div class="username-display" id="usernameDisplay"></div>
     <div id="clients"><strong>Available clients:</strong></div>
+    <button onclick="switchToGroupChat()">Group Chat</button> <!-- Group Chat button -->
     <div id="chat"></div>
     <div class="input-container">
       <input type="text" id="message" placeholder="Type a message..." onkeypress="handleKeyPress(event)">
@@ -162,20 +159,20 @@
 
   <script>
     let clientId;
-    let username = localStorage.getItem("username"); // Retrieve the saved username
+    let username = localStorage.getItem("username");
     let selectedClient;
     const ws = new WebSocket(`wss://${window.location.host}`);
     const chatBox = document.getElementById("chat");
     const clientsDiv = document.getElementById("clients");
     const usernameDisplay = document.getElementById("usernameDisplay");
+    const GROUP_CHAT_ID = "group-chat";
 
     if (!username) {
-      // Ask for username if it doesn't exist
       username = prompt("Enter your name:");
-      localStorage.setItem("username", username); // Save it in local storage
+      localStorage.setItem("username", username);
     }
 
-    usernameDisplay.textContent = `Logged in as: ${username}`; // Display username in top-right
+    usernameDisplay.textContent = `Logged in as: ${username}`;
 
     ws.onopen = () => {
       ws.send(JSON.stringify({ type: "join", username }));
@@ -191,11 +188,12 @@
         updateClientList(data.clients);
 
       } else if (data.type === "message") {
-        // Store and display received message
-        saveMessage(data.from, data.message, "from");
-        if (data.from === selectedClient) {
-          displayMessage(data.message, "from-message"); // No sender alias
+        if (data.to === GROUP_CHAT_ID) {
+          displayMessage(`${data.from}: ${data.message}`, "from-message");
+        } else if (data.from === selectedClient) {
+          displayMessage(data.message, "from-message");
         }
+        saveMessage(data.from, data.message, data.to === GROUP_CHAT_ID ? "group" : "from");
       }
     };
 
@@ -214,22 +212,33 @@
 
     function selectClient(id, name, button) {
       selectedClient = name;
-      chatBox.innerHTML = ""; // Clear chatBox for new chat
+      chatBox.innerHTML = "";
       loadChatHistory(name);
 
-      // Highlight selected client button
       document.querySelectorAll(".client-button").forEach(btn => btn.classList.remove("selected"));
       button.classList.add("selected");
+    }
+
+    function switchToGroupChat() {
+      selectedClient = GROUP_CHAT_ID;
+      chatBox.innerHTML = "";
+      loadChatHistory(GROUP_CHAT_ID);
+      document.querySelectorAll(".client-button").forEach(btn => btn.classList.remove("selected"));
     }
 
     function sendMessage() {
       const input = document.getElementById("message");
       const message = input.value;
 
-      if (message && selectedClient) {
-        ws.send(JSON.stringify({ type: "message", to: selectedClient, message }));
-        displayMessage(message, "sent-message"); // No "You:" prefix
-        saveMessage(selectedClient, message, "sent");
+      if (message) {
+        if (selectedClient === GROUP_CHAT_ID) {
+          ws.send(JSON.stringify({ type: "message", to: GROUP_CHAT_ID, message, from: username }));
+          displayMessage(`You: ${message}`, "sent-message");
+        } else if (selectedClient) {
+          ws.send(JSON.stringify({ type: "message", to: selectedClient, message }));
+          displayMessage(message, "sent-message");
+        }
+        saveMessage(selectedClient, message, selectedClient === GROUP_CHAT_ID ? "group" : "sent");
         input.value = "";
       }
     }
@@ -237,26 +246,22 @@
     function displayMessage(message, cssClass) {
       const messageElement = document.createElement("div");
       messageElement.className = `message ${cssClass}`;
-      messageElement.textContent = message; // Display message only
+      messageElement.textContent = message;
       chatBox.appendChild(messageElement);
       chatBox.scrollTop = chatBox.scrollHeight;
     }
 
     function saveMessage(peerId, message, type) {
-      // Retrieve the current chat history for the peer from local storage
       let chatHistory = JSON.parse(localStorage.getItem(peerId)) || [];
-      // Add the new message to the chat history
       chatHistory.push({ type, message, timestamp: new Date().toISOString() });
-      // Save the updated chat history back to local storage
       localStorage.setItem(peerId, JSON.stringify(chatHistory));
     }
 
     function loadChatHistory(peerId) {
       const chatHistory = JSON.parse(localStorage.getItem(peerId)) || [];
-
       chatHistory.forEach((chat) => {
-        const cssClass = chat.type === "sent" ? "sent-message" : "from-message";
-        displayMessage(chat.message, cssClass); // No sender alias
+        const cssClass = chat.type === "sent" || chat.type === "group" ? "sent-message" : "from-message";
+        displayMessage(chat.message, cssClass);
       });
     }
 
@@ -265,17 +270,6 @@
         sendMessage();
       }
     }
-
-    document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "hidden") {
-        const username = localStorage.getItem("username");
-        localStorage.clear();
-        chatBox.innerHTML = ""
-        if (username) {
-          localStorage.setItem("username", username);
-        }
-      }
-    });
   </script>
 </body>
 
