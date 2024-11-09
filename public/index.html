@@ -270,6 +270,17 @@
         sendMessage();
       }
     }
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") {
+        const username = localStorage.getItem("username");
+        localStorage.clear();
+        chatBox.innerHTML = ""
+        if (username) {
+          localStorage.setItem("username", username);
+        }
+      }
+    });
   </script>
 </body>
 
